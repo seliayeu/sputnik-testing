@@ -1,7 +1,10 @@
 #include <cmath>
 #include <iostream>
+#include <fstream>
 #include <sputnik/spmm/cuda_spmm.h>
 #include <random>
+#include <cuda_runtime_api.h> 
+#include <cusparse.h>        
 
 std::mt19937 gen;
 std::random_device rd;
@@ -44,14 +47,32 @@ void convertToCSR(float*& values, int*& rowOffsets, int*& colIndices, int& nnz, 
     }
 }
 
+void readDLMCMatrix(const std::string filename, float*& values, int*& rowOffsets, int*& colIndices, int& nnz, int& M, int& N) {
+    std::ifstream matrixFile(filename);
+    char comma;
+    std::uniform_real_distribution<float> entryDist(-1, 1);
+
+    matrixFile >> M >> comma >> N >> comma >> nnz;
+    rowOffsets = new int[M + 1];
+    colIndices = new int[nnz];
+    values = new float[nnz];
+
+    for (int i = 0; i < M + 1; ++i)
+        matrixFile >> rowOffsets[i];
+    for (int i = 0; i < nnz; ++i) {
+        matrixFile >> colIndices[i];
+        values[i] = entryDist(gen);
+    }
+}
+
 int main() {
     gen = std::mt19937{rd()};
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    int N = 1024;
-    int K = 1024;
-    int M = 1024;
+    int M = 4096;
+    int N = 4096;
+    int K = 4096;
     int sparsity = 0.8;
     
     float* A = generateMatrix(M, K, sparsity);
@@ -67,8 +88,6 @@ int main() {
     for (int i = 0; i < M; ++i)
         rowIndices[i] = i;
 
-    // std::cout <<"wowzer" << std::endl;
-    
     convertToCSR(valuesA, rowOffsetsA, colIndicesA, nnz, M, K, A);
 
     float* d_valuesA;
@@ -93,8 +112,74 @@ int main() {
     float* d_C;
     cudaMalloc(&d_C, M * N * sizeof(float));
 
-    sputnik::CudaSpmm(M, K, N, nnz, d_rowIndices, d_valuesA, d_rowOffsetsA, d_colIndicesA, d_B, d_C, stream);
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
-    // std::cout <<"yay" << std::endl;
+    cudaEventRecord(start);
+    sputnik::CudaSpmm(M, K, N, nnz, d_rowIndices, d_valuesA, d_rowOffsetsA, d_colIndicesA, d_B, d_C, stream);
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+
+    std::cout << milliseconds << std::endl;
+
+    // code from cuSPARSE example
+    
+    cusparseHandle_t     handle = NULL;
+    cusparseSpMatDescr_t matA;
+    cusparseDnMatDescr_t matB, matC;
+    void*                dBuffer    = NULL;
+    size_t               bufferSize = 0;
+    float alpha           = 1.0f;
+    float beta            = 0.0f;
+
+    cusparseCreate(&handle);
+    cusparseCreateCsr(&matA, M, K, nnz, d_rowOffsetsA, d_colIndicesA, d_valuesA,
+                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F);
+
+    cusparseCreateDnMat(&matB, K, N, K, d_B, CUDA_R_32F, CUSPARSE_ORDER_COL);
+    cusparseCreateDnMat(&matC, M, N, M, d_C, CUDA_R_32F, CUSPARSE_ORDER_COL);
+    cusparseSpMM_bufferSize(     handle,
+                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+                                 CUSPARSE_SPMM_ALG_DEFAULT, &bufferSize);
+    cudaMalloc(&dBuffer, bufferSize);
+    cusparseSpMM_preprocess(
+                                 handle,
+                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+                                 CUSPARSE_SPMM_ALG_DEFAULT, dBuffer);
+
+    cusparseSpMM(handle,
+                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+                                 CUSPARSE_SPMM_ALG_DEFAULT, dBuffer);
+
+
+    cusparseDestroySpMat(matA);
+    cusparseDestroyDnMat(matB);
+    cusparseDestroyDnMat(matC);
+    cusparseDestroy(handle);
+
+    cudaFree(d_valuesA);
+    cudaFree(d_colIndicesA);
+    cudaFree(d_rowOffsetsA);
+    cudaFree(d_B);
+    cudaFree(d_rowIndices);
+    cudaFree(d_C);
+    cudaFree(dBuffer);
+
+    delete A;
+    delete B;
+    delete valuesA;
+    delete rowOffsetsA;
+    delete colIndicesA;
+
     return 0;
 }
