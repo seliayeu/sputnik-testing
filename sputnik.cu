@@ -79,7 +79,6 @@ int main(int argc, char* argv[]) {
     gpuErrchk(cudaEventCreate(&start));
     gpuErrchk(cudaEventCreate(&stop));
 
-    std::cout << "Executing Sputnik kernel..." << std::endl;
     gpuErrchk(cudaEventRecord(start));
     gpuErrchk(sputnik::CudaSpmm(M, K, N, nnz, d_rowIndices, d_valuesA, d_rowOffsetsA, d_colIndicesA, d_B, d_C, stream));
     gpuErrchk(cudaEventRecord(stop));
@@ -87,7 +86,7 @@ int main(int argc, char* argv[]) {
     float milliseconds = 0;
     gpuErrchk(cudaEventElapsedTime(&milliseconds, start, stop));
 
-    std::cout << milliseconds << "ms" << std::endl;
+    std::cout << milliseconds << std::endl;
 
     cudaFree(d_valuesA);
     cudaFree(d_colIndicesA);

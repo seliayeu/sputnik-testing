@@ -56,7 +56,6 @@ int main(int argc, char* argv[]) {
     gpuErrchk(cudaEventCreate(&start));
     gpuErrchk(cudaEventCreate(&stop));
 
-    std::cout << "Executing dense GEMM kernel..." << std::endl;
     gpuErrchk(cudaEventRecord(start));
     status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, &alpha,
             d_A, CUDA_R_32F, M, 
@@ -77,7 +76,7 @@ int main(int argc, char* argv[]) {
     float milliseconds = 0;
     gpuErrchk(cudaEventElapsedTime(&milliseconds, start, stop));
 
-    std::cout << milliseconds << "ms" << std::endl;
+    std::cout << milliseconds << std::endl;
 
     cudaFree(d_A);
     cudaFree(d_B);

@@ -94,20 +94,24 @@ int main(int argc, char* argv[]) {
     gpuErrchk(cudaEventCreate(&start));
     gpuErrchk(cudaEventCreate(&stop));
 
-    std::cout << "Executing native SpMM kernel..." << std::endl;
     gpuErrchk(cudaEventRecord(start));
-    cusparseSpMM(handle,
+    cusparseStatus_t status;
+
+    status = cusparseSpMM(handle,
                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, matA, matB, &beta, matC, CUDA_R_32F,
                                  CUSPARSE_SPMM_ALG_DEFAULT, dBuffer);
+    if (status != CUSPARSE_STATUS_SUCCESS) {
+        printf ("CUSPARSE kernel failed\n");
+        return EXIT_FAILURE;
+    }
     gpuErrchk(cudaEventRecord(stop));
     gpuErrchk(cudaEventSynchronize(stop));
     float milliseconds = 0;
     gpuErrchk(cudaEventElapsedTime(&milliseconds, start, stop));
 
-    std::cout << milliseconds << "ms" << std::endl;
-
+    std::cout << milliseconds << std::endl;
 
     cusparseDestroySpMat(matA);
     cusparseDestroyDnMat(matB);
