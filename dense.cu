@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
     gen = std::mt19937{rd()};
 
     std::string matrixPath;
-    int sparsity;
+    float sparsity;
 
     int M, N, K;
 

@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
     gen = std::mt19937{rd()};
 
     std::string matrixPath;
-    int sparsity;
+    float sparsity;
 
     int M, N, K;
 
@@ -38,6 +38,7 @@ int main(int argc, char* argv[]) {
         delete A;
     } else {
         std::cerr << "Invalid number of arguments." << std::endl;
+        return -1;
     }
 
     cudaStream_t stream;

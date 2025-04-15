@@ -25,11 +25,15 @@ float* generateMatrix(int M, int N, float sparsity) {
     std::uniform_real_distribution<float> entryDist(-1, 1);
     std::uniform_real_distribution<float> choiceDist(0, 1);
 
+    std::cout << sparsity << std::endl;
     float* out = new float[M * N];
     for (int i = 0; i < M * N; ++i) {
-        if (choiceDist(gen) < sparsity)
-            continue;
-        out[i] = entryDist(gen);
+        float rand = choiceDist(gen);
+        /*std::cout << (rand < sparsity) << std::endl;*/
+        if (rand < sparsity)
+            out[i] = 0;
+        else
+            out[i] = entryDist(gen);
     }
 
     return out;
@@ -37,6 +41,7 @@ float* generateMatrix(int M, int N, float sparsity) {
 
 void convertToCSR(float*& values, int*& rowOffsets, int*& colIndices, int& nnz, int M, int N, const float* input) {
     rowOffsets = new int[M + 1];
+    nnz = 0;
 
     for (int i = 0; i < M * N; ++i) {
         if (input[i] != 0)

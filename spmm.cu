@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
     gen = std::mt19937{rd()};
 
     std::string matrixPath;
-    int sparsity;
+    float sparsity;
 
     int M, N, K;
 
@@ -31,6 +31,7 @@ int main(int argc, char* argv[]) {
         K = std::stoi(argv[2]);
         N = std::stoi(argv[3]);;
         sparsity = std::stof(argv[4]);
+    
         float* A = generateMatrix(M, K, sparsity);
         convertToCSR(valuesA, rowOffsetsA, colIndicesA, nnz, M, K, A);
         delete A;
